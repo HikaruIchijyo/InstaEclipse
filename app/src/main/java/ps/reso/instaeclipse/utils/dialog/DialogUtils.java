@@ -608,156 +608,211 @@ public class DialogUtils {
         });
     }
 
+package ps.reso.instaeclipse.utils.dialog;
 
-    // ==== HELPERS ====
+import android.annotation.SuppressLint; import android.app.Activity; import android.app.AlertDialog; import android.content.Context; import android.content.Intent; import android.content.res.ColorStateList; import android.graphics.Color; import android.graphics.drawable.ColorDrawable; import android.graphics.drawable.GradientDrawable; import android.view.ContextThemeWrapper; import android.view.Gravity; import android.view.View; import android.widget.Button; import android.widget.LinearLayout; import android.widget.ScrollView; import android.widget.Switch; import android.widget.TextView; import android.widget.Toast;
 
-    @SuppressLint("SetTextI18n")
-    private static void showSectionDialog(Context context, String title, LinearLayout contentLayout, Runnable onSave) {
+import java.util.Objects;
+
+import de.robv.android.xposed.XposedBridge; import ps.reso.instaeclipse.mods.ui.InstagramUI; import ps.reso.instaeclipse.utils.core.SettingsManager; import ps.reso.instaeclipse.utils.feature.FeatureFlags; import ps.reso.instaeclipse.utils.ghost.GhostModeUtils;
+
+public class DialogUtils {
+
+private static AlertDialog currentDialog;
+
+@SuppressLint("UseCompatLoadingForDrawables")
+public static void showEclipseOptionsDialog(Context context) {
+    SettingsManager.init(context);
+    Context themedContext = new ContextThemeWrapper(context, android.R.style.Theme_Material_Dialog_Alert);
+
+    LinearLayout mainLayout = buildMainMenuLayout(themedContext);
+    ScrollView scrollView = new ScrollView(themedContext);
+    scrollView.setPadding(24, 24, 24, 24);
+    scrollView.addView(mainLayout);
+
+    if (currentDialog != null && currentDialog.isShowing()) {
+        currentDialog.dismiss();
+    }
+
+    currentDialog = new AlertDialog.Builder(themedContext)
+            .setView(scrollView)
+            .setTitle(null)
+            .setCancelable(true)
+            .create();
+
+    Objects.requireNonNull(currentDialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+    currentDialog.show();
+}
+
+@SuppressLint("SetTextI18n")
+private static LinearLayout buildMainMenuLayout(Context context) {
+    LinearLayout mainLayout = new LinearLayout(context);
+    mainLayout.setOrientation(LinearLayout.VERTICAL);
+    mainLayout.setPadding(40, 40, 40, 40);
+
+    GradientDrawable background = new GradientDrawable();
+    background.setColor(Color.parseColor("#262626"));
+    background.setCornerRadius(48);
+    mainLayout.setBackground(background);
+
+    TextView title = new TextView(context);
+    title.setText("InstaEclipse 🌘");
+    title.setTextColor(Color.WHITE);
+    title.setTextSize(22);
+    title.setGravity(Gravity.CENTER);
+    title.setPadding(0, 20, 0, 20);
+    mainLayout.addView(title);
+
+    mainLayout.addView(createDivider(context));
+
+    @SuppressLint("UseSwitchCompatOrMaterialCode")
+    Switch devSwitch = createSwitch(context, "🎛 Developer Mode", FeatureFlags.isDevEnabled);
+    devSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        FeatureFlags.isDevEnabled = isChecked;
+        SettingsManager.saveAllFlags();
+    });
+    mainLayout.addView(devSwitch);
+
+    mainLayout.addView(createDivider(context));
+
+    mainLayout.addView(createClickableSection(context, "👻 Ghost Mode Settings", () -> showGhostOptions(context)));
+    mainLayout.addView(createClickableSection(context, "🛡 Ad/Analytics Block", () -> showAdOptions(context)));
+    mainLayout.addView(createClickableSection(context, "🧘 Distraction-Free Instagram", () -> showDistractionOptions(context)));
+    mainLayout.addView(createClickableSection(context, "⚙ Misc Features", () -> showMiscOptions(context)));
+    mainLayout.addView(createClickableSection(context, "ℹ️ About", () -> showAboutDialog(context)));
+    mainLayout.addView(createClickableSection(context, "🔁 Restart Instagram", () -> showRestartSection(context)));
+
+    mainLayout.addView(createDivider(context));
+
+    TextView footer = new TextView(context);
+    footer.setText("@reso7200");
+    footer.setTextColor(Color.GRAY);
+    footer.setTextSize(14);
+    footer.setPadding(0, 30, 0, 10);
+    footer.setGravity(Gravity.CENTER_HORIZONTAL);
+    mainLayout.addView(footer);
+
+    TextView closeButton = new TextView(context);
+    closeButton.setText("❌ Close");
+    closeButton.setTextColor(Color.WHITE);
+    closeButton.setTextSize(16);
+    closeButton.setPadding(20, 30, 20, 30);
+    closeButton.setGravity(Gravity.CENTER);
+    closeButton.setBackgroundResource(android.R.drawable.list_selector_background);
+    closeButton.setOnClickListener(v -> {
         if (currentDialog != null) currentDialog.dismiss();
+    });
 
-        // Wrap in a card-style layout
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(40, 40, 40, 20);
+    mainLayout.addView(createDivider(context));
+    mainLayout.addView(closeButton);
 
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.parseColor("#262626"));
-        background.setCornerRadius(32);
-        container.setBackground(background);
+    SettingsManager.saveAllFlags();
 
-        // Title
-        TextView titleView = new TextView(context);
-        titleView.setText(title);
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(22);
-        titleView.setGravity(Gravity.CENTER);
-        titleView.setPadding(0, 0, 0, 30);
-        container.addView(titleView);
-
-        container.addView(createDivider(context));
-        container.addView(contentLayout);
-        container.addView(createDivider(context));
-
-        // Footer button
-        TextView backBtn = new TextView(context);
-        backBtn.setText("← Back");
-        backBtn.setTextColor(Color.WHITE);
-        backBtn.setTextSize(16);
-        backBtn.setGravity(Gravity.CENTER);
-        backBtn.setBackgroundResource(android.R.drawable.list_selector_background);
-        backBtn.setPadding(0, 30, 0, 10);
-        backBtn.setOnClickListener(v -> {
-            onSave.run();
-            SettingsManager.saveAllFlags();
-            showEclipseOptionsDialog(context);
-        });
-
-        container.addView(backBtn);
-
-        ScrollView scrollView = new ScrollView(context);
-        scrollView.addView(container);
-
-        currentDialog = new AlertDialog.Builder(context)
-                .setView(scrollView)
-                .setCancelable(true)
-                .create();
-
-        Objects.requireNonNull(currentDialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-        currentDialog.show();
+    Activity activity = InstagramUI.getCurrentActivity();
+    if (activity != null) {
+        InstagramUI.addGhostEmojiNextToInbox(activity, GhostModeUtils.isGhostModeActive());
     }
 
+    return mainLayout;
+}
 
-    private static LinearLayout createSwitchLayout(Context context) {
-        LinearLayout layout = new LinearLayout(context);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(40, 30, 40, 30);
-        layout.setDividerDrawable(new ColorDrawable(Color.DKGRAY));
-        layout.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
-        layout.setDividerPadding(20);
+private static View createDivider(Context context) {
+    View divider = new View(context);
+    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 2);
+    params.setMargins(0, 20, 0, 20);
+    divider.setLayoutParams(params);
+    divider.setBackgroundColor(Color.DKGRAY);
+    return divider;
+}
 
-        return layout;
+private static Switch createSwitch(Context context, String label, boolean isChecked) {
+    @SuppressLint("UseSwitchCompatOrMaterialCode")
+    Switch toggle = new Switch(context);
+    toggle.setText(label);
+    toggle.setTextColor(Color.WHITE);
+    toggle.setTextSize(16);
+    toggle.setPadding(20, 20, 20, 20);
+    toggle.setChecked(isChecked);
+    return toggle;
+}
+
+private static LinearLayout createSwitchLayout(Context context) {
+    LinearLayout layout = new LinearLayout(context);
+    layout.setOrientation(LinearLayout.VERTICAL);
+    layout.setPadding(40, 40, 40, 40);
+
+    GradientDrawable background = new GradientDrawable();
+    background.setColor(Color.parseColor("#262626"));
+    background.setCornerRadius(48);
+    layout.setBackground(background);
+
+    return layout;
+}
+
+private static View createClickableSection(Context context, String label, Runnable onClick) {
+    TextView section = new TextView(context);
+    section.setText(label);
+    section.setTextColor(Color.WHITE);
+    section.setTextSize(16);
+    section.setPadding(20, 30, 20, 30);
+    section.setGravity(Gravity.START);
+    section.setBackgroundResource(android.R.drawable.list_selector_background);
+    section.setOnClickListener(v -> onClick.run());
+    return section;
+}
+
+private static View createEnableAllSwitch(Context context, Switch enableAllSwitch) {
+    enableAllSwitch.setTextColor(Color.YELLOW);
+    enableAllSwitch.setTextSize(17);
+    enableAllSwitch.setPadding(20, 30, 20, 30);
+    return enableAllSwitch;
+}
+
+private static boolean areAllEnabled(Switch[] switches) {
+    for (Switch s : switches) {
+        if (!s.isChecked()) return false;
     }
+    return true;
+}
 
-    private static Switch createSwitch(Context context, String label, boolean defaultState) {
-        @SuppressLint("UseSwitchCompatOrMaterialCode") Switch toggle = new Switch(context);
-        toggle.setText(label);
-        toggle.setChecked(defaultState);
-        toggle.setPadding(30, 20, 30, 20);
-        toggle.setTextColor(Color.WHITE);
-        toggle.setThumbTintList(createThumbColor());
-        toggle.setTrackTintList(createTrackColor());
-        toggle.setTextSize(16);
-        return toggle;
-    }
+private static void showSectionDialog(Context context, String title, View layout, Runnable onClose) {
+    AlertDialog sectionDialog = new AlertDialog.Builder(context)
+            .setTitle(title)
+            .setView(layout)
+            .setCancelable(true)
+            .setOnDismissListener(dialog -> onClose.run())
+            .create();
 
-    private static ColorStateList createThumbColor() {
-        return new ColorStateList(
-                new int[][]{
-                        new int[]{android.R.attr.state_checked},   // Checked
-                        new int[]{-android.R.attr.state_checked}   // Unchecked
-                },
-                new int[]{
-                        Color.parseColor("#dabd03"),  //  ON
-                        Color.parseColor("#4d4b4b")   // OFF
-                }
-        );
-    }
+    Objects.requireNonNull(sectionDialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-    private static ColorStateList createTrackColor() {
-        return new ColorStateList(
-                new int[][]{
-                        new int[]{android.R.attr.state_checked},
-                        new int[]{-android.R.attr.state_checked}
-                },
-                new int[]{
-                        Color.parseColor("#CFD8DC"),  //  ON
-                        Color.parseColor("#000000")   //  OFF
-                }
-        );
-    }
+    sectionDialog.show();
+}
 
-    private static View createClickableSection(Context context, String label, Runnable onClick) {
-        TextView section = new TextView(context);
-        section.setText(label);
-        section.setTextSize(18);
-        section.setTextColor(Color.WHITE);
-        section.setPadding(20, 24, 20, 24);
-        section.setBackgroundResource(android.R.drawable.list_selector_background);
-        section.setOnClickListener(v -> onClick.run());
-        return section;
-    }
+private static void showAboutDialog(Context context) {
+    // Implementation placeholder
+}
 
+private static void showRestartSection(Context context) {
+    // Implementation placeholder
+}
 
-    private static LinearLayout createEnableAllSwitch(Context context, @SuppressLint("UseSwitchCompatOrMaterialCode") Switch enableAllSwitch) {
-        // Customize the main Enable/Disable All switch style
-        enableAllSwitch.setTextSize(18f);
-        enableAllSwitch.setTextColor(Color.parseColor("#FFEB3B")); // Bright yellow
-        enableAllSwitch.setPadding(40, 40, 40, 40);
+private static void showGhostOptions(Context context) {
+    // Implementation placeholder
+}
 
-        // Create a container layout
-        LinearLayout container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(20, 20, 20, 20);
+private static void showAdOptions(Context context) {
+    // Implementation placeholder
+}
 
-        // Background with rounded corners
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.parseColor("#333333")); // Dark grey background
-        background.setCornerRadius(24);
-        container.setBackground(background);
+private static void showDistractionOptions(Context context) {
+    // Implementation placeholder
+}
 
-        container.addView(enableAllSwitch);
-
-        return container;
-    }
-
-
-    private static boolean areAllEnabled(Switch[] switches) {
-        for (Switch s : switches) {
-            if (!s.isChecked()) return false;
-        }
-        return true;
-    }
-
+private static void showMiscOptions(Context context) {
+    // Implementation placeholder
+}
 
 }
+
